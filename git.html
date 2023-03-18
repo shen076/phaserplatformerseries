@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Setup - Phaser Platformer series</title>
+    <title>Inertia and 'feel' - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -32,12 +32,13 @@
         platforms,
         cursors,
         score = 0,
-        scoreText;
+        scoreText,
+        acceleration = 600,
+        jumpVelocity = -330;
 
       var game = new Phaser.Game(config);
 
       function preload() {
-        // this.load.setBaseURL("https://digitherium/codepen/phaserplatformer/");
         this.load.setBaseURL("assets/");
         this.load.image("ground", "platform.jpg");
         this.load.image("coin", "coin.jpg");
@@ -62,6 +63,9 @@
 
         //Set bounce to 0, so our hero just lands directly
         player.setBounce(0);
+        //Set top speeds
+        player.body.maxVelocity.x = 200;
+        player.body.maxVelocity.y = 500;
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -75,7 +79,7 @@
           child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         });
 
-        scoreText = this.add.text(config.width - 140, 16, "score: 0", {
+        scoreText = this.add.text(16, 16, "score: 0", {
           fontSize: "24px",
           fill: "#fff",
         });
@@ -89,20 +93,45 @@
         var standing = player.body.blocked.down || player.body.touching.down;
         //if left key is down then move left
         if (cursors.left.isDown) {
-          player.setVelocityX(-160);
+          //if hero is on ground then use full acceleration
+          if (standing) {
+            player.setAccelerationX(-acceleration);
+          }
+          //if hero is in the air then accelerate slower
+          else {
+            player.setAccelerationX(-acceleration / 3);
+          }
         }
         //same deal but for right arrow
         else if (cursors.right.isDown) {
-          player.setVelocityX(160);
+          if (standing) {
+            player.setAccelerationX(acceleration);
+          } else {
+            player.setAccelerationX(acceleration / 3);
+          }
         }
         //if neither left or right arrow is down then...
         else {
-          player.setVelocityX(0);
+          //if hero is close to having no velocity either left or right then set velocity to 0. This stops jerky back and forth as the hero comes to a halt. i.e. as we slow hero down, below a certain point we just stop them moving altogether as it looks smoother
+          if (
+            Math.abs(player.body.velocity.x) < 10 &&
+            Math.abs(player.body.velocity.x) > -10
+          ) {
+            player.setVelocityX(0);
+            player.setAccelerationX(0);
+          }
+          //if our hero isn't moving left or right then slow them down
+          else {
+            //this velocity.x check just works out whether we are setting a positive (going right) or negative (going left) number
+            player.setAccelerationX(
+              ((player.body.velocity.x > 0 ? -1 : 1) * acceleration) / 3
+            );
+          }
         }
 
         //If player is touching floor and up key is pressed then jump
         if (standing && cursors.up.isDown) {
-          player.setVelocityY(-330);
+          player.setVelocityY(jumpVelocity);
         }
       }
 
