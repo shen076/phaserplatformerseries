@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Improved Touch Controls - Phaser Platformer series</title>
+    <title>Animating Coins - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -29,6 +29,8 @@
 
       var player,
         coins,
+        scoreCoin,
+        scoreCoinTimeline,
         platforms,
         cursors,
         score = 0,
@@ -67,10 +69,8 @@
         var logo = this.add.sprite(config.width / 2, config.height / 2, "logo");
         logo.alpha = 0.4;
         logo.setScale(0.5);
-
         this.input.addPointer(1);
         platforms = this.physics.add.staticGroup();
-
         platforms.create(400, 400, "ground").setScale(2).refreshBody();
         platforms.create(50, 240, "ground");
         platforms.create(750, 140, "ground");
@@ -78,7 +78,7 @@
         player = this.physics.add.sprite(100, 350, "hero");
 
         player.setCollideWorldBounds(true);
-
+        buildTouchSlider(this);
         //Set bounce to 0, so our hero just lands directly
         player.setBounce(0);
         //Set top speeds
@@ -97,7 +97,11 @@
           child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         });
 
-        scoreText = this.add.text(16, 16, "score: 0", {
+        scoreCoin = this.add.sprite(30, 32, "coin");
+        scoreCoin.setOrigin(0.5, 0.5);
+        scoreCoin.scaleX = 0.5;
+        scoreCoin.scaleY = 0.5;
+        scoreText = this.add.text(46, 20, "0", {
           fontSize: "24px",
           fill: "#fff",
         });
@@ -105,8 +109,6 @@
         this.physics.add.collider(player, platforms);
         this.physics.add.collider(coins, platforms);
         this.physics.add.overlap(player, coins, collectCoin, null, this);
-
-        buildTouchSlider(this);
       }
 
       function buildTouchSlider(game) {
@@ -345,10 +347,62 @@
       }
 
       function collectCoin(player, coin) {
-        coin.disableBody(true, true);
+        //stop coin for being collected twice, as it will stick around on the screen as it animnates
+        coin.disableBody(false, false);
 
+        //tween coin to score coin in corner shrink
+        var tween = this.tweens.add({
+          targets: coin,
+          alpha: 0.3,
+          angle: 720,
+          x: scoreCoin.x,
+          y: scoreCoin.y,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          ease: "Linear",
+          duration: 500,
+          onComplete: function () {
+            destroyGameObject(coin);
+          },
+        });
+
+        //check if we already have an animation
+        if (scoreCoinTimeline) {
+          //if animation isn't currently running, then run again
+          if (scoreCoinTimeline.progress == 1) {
+            animateScoreCoin(this);
+          }
+        } else {
+          //no animation to create one
+          animateScoreCoin(this);
+        }
         score += 10;
-        scoreText.setText("Score: " + score);
+        scoreText.setText(score);
+      }
+
+      //rotate score coin and make bigger before shrinking again
+      function animateScoreCoin(game) {
+        scoreCoinTimeline = game.tweens.timeline({
+          targets: scoreCoin,
+          duration: 100,
+          tweens: [
+            {
+              scaleX: 0.8,
+              scaleY: 0.8,
+              angle: "+=45",
+            },
+            {
+              scaleX: 0.5,
+              scaleY: 0.5,
+              angle: "+=45",
+            },
+          ],
+        });
+      }
+
+      function destroyGameObject(gameObject) {
+        // Removes any game object from the screen
+        gameObject.destroy();
       }
     </script>
   </body>
