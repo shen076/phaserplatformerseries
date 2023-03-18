@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Baddies - Phaser Platformer series</title>
+    <title>Moving Baddies - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -88,8 +88,13 @@
         player.body.maxVelocity.x = 200;
         player.body.maxVelocity.y = 500;
 
-        baddie = this.physics.add.sprite(620, 352, "baddie");
+        baddie = this.physics.add.sprite(620, 350, "baddie");
+        baddie.setOrigin(0.5, 0.5);
         baddie.setCollideWorldBounds(true);
+
+        baddie.body.velocity.x = -100;
+        baddie.maxDistance = 300;
+        baddie.previousX = baddie.x;
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -120,9 +125,9 @@
       }
 
       function hitBaddie(player, baddie) {
-        //if the collision is on the baddies head
-        if (baddie.body.touching.up) {
-          // set baddie as being hit by removing physics
+        //if the collision is on the baddies head, and baddie hasn't ready been hit...
+        if (baddie.body.touching.up && !baddie.hit) {
+          // set baddie as being hit and remove physics
           baddie.disableBody(false, false);
           //make player jump up in the air a little bit
           player.setVelocityY(jumpVelocity);
@@ -201,6 +206,13 @@
         }
       }
 
+      function switchDirection(baddie) {
+        //reverse velocity so baddie moves are same speed but in opposite direction
+        baddie.body.velocity.x *= -1;
+        //reset count
+        baddie.previousX = baddie.x;
+      }
+
       function update() {
         var standing = player.body.blocked.down || player.body.touching.down;
         //if left key is down then move left
@@ -209,6 +221,10 @@
         } else if (cursors.right.isDown) {
           //same deal but for right arrow
           moveRight(acceleration);
+        }
+
+        if (Math.abs(baddie.x - baddie.previousX) >= baddie.maxDistance) {
+          switchDirection(baddie);
         }
 
         //if either touch pointer is down. Two thumbs, two pointers
@@ -341,7 +357,7 @@
               //get new position of touch pointer
               yPos = myJumpPointer.y;
 
-              //if we have moved our thump upwards and it's more than our threshold then we set jump flag to true
+              //if we have moved our thump upwards then we set jump flag to true
               if (prevPos - yPos > touchJumpThreshold) {
                 touchJump = true;
               }
