@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Better Jumping - Phaser Platformer series</title>
+    <title>Edge Timer - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -35,6 +35,8 @@
         scoreText,
         acceleration = 600,
         jumpVelocity = -330,
+        wasStanding = false,
+        edgeTimer = 0,
         jumping = false;
 
       var game = new Phaser.Game(config);
@@ -58,7 +60,7 @@
         platforms.create(50, 240, "ground");
         platforms.create(750, 140, "ground");
 
-        player = this.physics.add.sprite(100, 350, "hero");
+        player = this.physics.add.sprite(100, 450, "hero");
 
         player.setCollideWorldBounds(true);
 
@@ -126,14 +128,26 @@
           }
         }
 
-        if (standing && cursors.up.isDown && !jumping) {
+        //get current time in seconds
+        var d = new Date();
+        var time = d.getTime();
+
+        //if we have just left the ground set edge time for 100ms time
+        if (!standing && wasStanding) {
+          edgeTimer = time + 100;
+        }
+
+        if ((standing || time <= edgeTimer) && cursors.up.isDown && !jumping) {
           player.setVelocityY(jumpVelocity);
           jumping = true;
-        } else if (!cursors.up.isDown) {
+        }
+
+        if (!cursors.up.isDown) {
           if (player.body.touching.down) {
             jumping = false;
           }
         }
+        wasStanding = standing;
       }
 
       function collectCoin(player, coin) {
