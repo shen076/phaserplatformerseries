@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Animating Coins - Phaser Platformer series</title>
+    <title>Baddies - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -28,6 +28,7 @@
       };
 
       var player,
+        baddie,
         coins,
         scoreCoin,
         scoreCoinTimeline,
@@ -60,6 +61,7 @@
         this.load.image("ground", "platform.jpg");
         this.load.image("coin", "coin.jpg");
         this.load.image("hero", "hero.jpg");
+        this.load.image("baddie", "baddie.jpg");
         this.load.image("logo", "digitherium-logo.jpg");
         this.load.image("touch-slider", "touch-slider.png");
         this.load.image("touch-knob", "touch-knob.png");
@@ -71,6 +73,7 @@
         logo.setScale(0.5);
         this.input.addPointer(1);
         platforms = this.physics.add.staticGroup();
+
         platforms.create(400, 400, "ground").setScale(2).refreshBody();
         platforms.create(50, 240, "ground");
         platforms.create(750, 140, "ground");
@@ -84,6 +87,9 @@
         //Set top speeds
         player.body.maxVelocity.x = 200;
         player.body.maxVelocity.y = 500;
+
+        baddie = this.physics.add.sprite(620, 352, "baddie");
+        baddie.setCollideWorldBounds(true);
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -107,8 +113,60 @@
         });
 
         this.physics.add.collider(player, platforms);
+        this.physics.add.collider(baddie, platforms);
         this.physics.add.collider(coins, platforms);
         this.physics.add.overlap(player, coins, collectCoin, null, this);
+        this.physics.add.overlap(player, baddie, hitBaddie, null, this);
+      }
+
+      function hitBaddie(player, baddie) {
+        //if the collision is on the baddies head
+        if (baddie.body.touching.up) {
+          // set baddie as being hit by removing physics
+          baddie.disableBody(false, false);
+          //make player jump up in the air a little bit
+          player.setVelocityY(jumpVelocity);
+
+          //animate baddie, fading out and getting bigger
+          var tween = this.tweens.add({
+            targets: baddie,
+            alpha: 0.3,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            ease: "Linear",
+            duration: 200,
+            onComplete: function () {
+              //remove the game object
+              destroyGameObject(baddie);
+            },
+          });
+        }
+        //otherwise you've hit baddie, but not on the head. This makes you die
+        else {
+          //set player to dead
+          player.disableBody(false, false);
+
+          //animate players death scene
+          var tween = this.tweens.add({
+            targets: player,
+            alpha: 0.3,
+            scaleX: 1.1,
+            scaleY: 1.1,
+            angle: 90,
+            x: player.x - 20,
+            y: player.y - 20,
+            ease: "Linear",
+            duration: 200,
+            onComplete: function () {
+              restartGame(this);
+            },
+            onCompleteScope: this,
+          });
+        }
+      }
+
+      function restartGame(game) {
+        game.scene.restart();
       }
 
       function buildTouchSlider(game) {
