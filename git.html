@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Phaser Platformer Series: 1 Introduction</title>
+    <title>Setup - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -37,7 +37,7 @@
       var game = new Phaser.Game(config);
 
       function preload() {
-        // this.load.setBaseURL("https://digitherium.com/codepen/phaserplatformer/");
+        // this.load.setBaseURL("https://digitherium/codepen/phaserplatformer/");
         this.load.setBaseURL("assets/");
         this.load.image("ground", "platform.jpg");
         this.load.image("coin", "coin.jpg");
@@ -75,7 +75,7 @@
           child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         });
 
-        scoreText = this.add.text(16, 16, "score: 0", {
+        scoreText = this.add.text(config.width - 140, 16, "score: 0", {
           fontSize: "24px",
           fill: "#fff",
         });
@@ -86,7 +86,6 @@
       }
 
       function update() {
-        //built in arcade physics functions of blocked and touching to test for collisions in a given direction
         var standing = player.body.blocked.down || player.body.touching.down;
         //if left key is down then move left
         if (cursors.left.isDown) {
