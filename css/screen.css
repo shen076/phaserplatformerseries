@@ -1,9 +1,9 @@
- body {
-     margin: 0;
-     background: #16191b;
- }
+body {
+  margin: 0;
+  background: #16191b;
+}
 
- canvas {
-     display: block;
-     margin: auto;
- }
+canvas {
+  display: block;
+  margin: auto;
+}
