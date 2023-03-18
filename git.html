@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Inertia and 'feel' - Phaser Platformer series</title>
+    <title>Better Jumping - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -34,7 +34,8 @@
         score = 0,
         scoreText,
         acceleration = 600,
-        jumpVelocity = -330;
+        jumpVelocity = -330,
+        jumping = false;
 
       var game = new Phaser.Game(config);
 
@@ -96,22 +97,19 @@
           //if hero is on ground then use full acceleration
           if (standing) {
             player.setAccelerationX(-acceleration);
-          }
-          //if hero is in the air then accelerate slower
-          else {
+          } else {
+            //if hero is in the air then accelerate slower
             player.setAccelerationX(-acceleration / 3);
           }
-        }
-        //same deal but for right arrow
-        else if (cursors.right.isDown) {
+        } else if (cursors.right.isDown) {
+          //same deal but for right arrow
           if (standing) {
             player.setAccelerationX(acceleration);
           } else {
             player.setAccelerationX(acceleration / 3);
           }
-        }
-        //if neither left or right arrow is down then...
-        else {
+        } else {
+          //if neither left or right arrow is down then...
           //if hero is close to having no velocity either left or right then set velocity to 0. This stops jerky back and forth as the hero comes to a halt. i.e. as we slow hero down, below a certain point we just stop them moving altogether as it looks smoother
           if (
             Math.abs(player.body.velocity.x) < 10 &&
@@ -119,9 +117,8 @@
           ) {
             player.setVelocityX(0);
             player.setAccelerationX(0);
-          }
-          //if our hero isn't moving left or right then slow them down
-          else {
+          } else {
+            //if our hero isn't moving left or right then slow them down
             //this velocity.x check just works out whether we are setting a positive (going right) or negative (going left) number
             player.setAccelerationX(
               ((player.body.velocity.x > 0 ? -1 : 1) * acceleration) / 3
@@ -129,14 +126,19 @@
           }
         }
 
-        //If player is touching floor and up key is pressed then jump
-        if (standing && cursors.up.isDown) {
+        if (standing && cursors.up.isDown && !jumping) {
           player.setVelocityY(jumpVelocity);
+          jumping = true;
+        } else if (!cursors.up.isDown) {
+          if (player.body.touching.down) {
+            jumping = false;
+          }
         }
       }
 
       function collectCoin(player, coin) {
         coin.disableBody(true, true);
+
         score += 10;
         scoreText.setText("Score: " + score);
       }
