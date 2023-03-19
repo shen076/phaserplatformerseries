@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Ladders Improved - Phaser Platformer series</title>
+    <title>Shells - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -55,7 +55,9 @@
         touchMoveThreshold = 3,
         largeThumbMoveAcross = 25,
         thumbSizeOffset = 60,
-        startX;
+        startX,
+        shell,
+        shellSpeed = 500;
 
       var game = new Phaser.Game(config);
 
@@ -66,6 +68,7 @@
         this.load.image("hero", "hero.jpg");
         this.load.image("baddie", "baddie.jpg");
         this.load.image("ladder", "ladder.png");
+        this.load.image("shell", "shell.png");
         this.load.image("logo", "digitherium-logo.jpg");
         this.load.image("touch-slider", "touch-slider.png");
         this.load.image("touch-knob", "touch-knob.png");
@@ -99,6 +102,9 @@
         baddie.maxDistance = 300;
         baddie.previousX = baddie.x;
 
+        shell = this.physics.add.sprite(200, 350, "shell");
+        shell.setOrigin(0.5, 0.5);
+
         buildTouchSlider(this);
         //Set bounce to 0, so our hero just lands directly
         player.setBounce(0);
@@ -130,10 +136,13 @@
         this.physics.add.collider(player, platforms);
         this.physics.add.collider(baddie, platforms);
         this.physics.add.collider(coins, platforms);
+        this.physics.add.collider(shell, platforms);
+        this.physics.add.collider(player, shell, shellHit, null, this);
         this.physics.add.overlap(player, coins, collectCoin, null, this);
         this.physics.add.overlap(player, baddie, hitBaddie, null, this);
         this.physics.add.overlap(player, ladders, isOnLadder, null, this);
         this.physics.add.collider(player, ladders, null, checkLadderTop, this);
+        this.physics.add.overlap(shell, baddie, shellHitBaddie, null, this);
       }
 
       function hitBaddie(player, baddie) {
@@ -175,6 +184,66 @@
             onCompleteScope: this,
           });
         }
+      }
+
+      function shellHitBaddie(shell, baddie) {
+        if (!baddie.hit) {
+          // set baddie as being hit and remove physics
+          baddie.disableBody(false, false);
+          //play baddie death animation
+          var tween = this.tweens.add({
+            targets: baddie,
+            alpha: 0.3,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            ease: "Linear",
+            duration: 200,
+            onComplete: function () {
+              destroyGameObject(baddie);
+            },
+          });
+
+          //disable physics of shell
+          shell.disableBody(false, false);
+          //play shell hit animation
+          var tween2 = this.tweens.add({
+            targets: shell,
+            alpha: 0.3,
+            scaleX: 2,
+            scaleY: 2,
+            y: "-=100",
+            rotation: -360,
+            ease: "Linear",
+            duration: 200,
+            onComplete: function () {
+              destroyGameObject(shell);
+            },
+          });
+        }
+      }
+
+      function shellHit(player, shell) {
+        //work out the center point of the shell and player
+        var threshold = shell.x + shell.width / 2,
+          playerX = player.x + player.width / 2;
+
+        //if the player has jumped on top of the shell...
+        if (shell.body.touching.up) {
+          //if player landed on left hand side of shell send shell off to right
+          if (playerX < threshold) shell.body.velocity.x = shellSpeed;
+          //if player landed on right hand side of shell send shell off to left
+          else shell.body.velocity.x = -shellSpeed;
+        }
+        //player hit shell from left so send right
+        if (shell.body.touching.left) {
+          shell.body.velocity.x = shellSpeed;
+        }
+        //player hit shell from right so send left
+        if (shell.body.touching.right) {
+          shell.body.velocity.x = -shellSpeed;
+        }
+        //make player react to shell by bouncing slightly
+        player.body.velocity.y = -200;
       }
 
       function restartGame(game) {
@@ -226,7 +295,7 @@
 
       //called when player overlaps ladder
       function isOnLadder(player, ladder) {
-        //set ladder flag to true and remove gravity
+        //set ladder flag to true and remove gravity but only if not at the top of the ladder
         if (
           Math.floor(player.y) + player.height / 2 >
           ladder.y - ladder.height / 2
