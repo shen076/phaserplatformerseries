@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Moving Baddies - Phaser Platformer series</title>
+    <title>Ladders - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -17,6 +17,7 @@
         physics: {
           default: "arcade",
           arcade: {
+            fps: 120,
             gravity: { y: 300 },
           },
         },
@@ -33,14 +34,15 @@
         scoreCoin,
         scoreCoinTimeline,
         platforms,
+        ladders,
         cursors,
         score = 0,
         scoreText,
         acceleration = 600,
         jumpVelocity = -330,
         wasStanding = false,
+        onLadder = false,
         edgeTimer = 0,
-        jumping = false,
         prevPos = 0,
         yPos = 0,
         touchJump = false,
@@ -49,6 +51,7 @@
         sliderBar,
         sliderKnob,
         touchMoving = false,
+        isTouch = false,
         touchMoveThreshold = 3,
         largeThumbMoveAcross = 25,
         thumbSizeOffset = 60,
@@ -62,6 +65,7 @@
         this.load.image("coin", "coin.jpg");
         this.load.image("hero", "hero.jpg");
         this.load.image("baddie", "baddie.jpg");
+        this.load.image("ladder", "ladder.png");
         this.load.image("logo", "digitherium-logo.jpg");
         this.load.image("touch-slider", "touch-slider.png");
         this.load.image("touch-knob", "touch-knob.png");
@@ -71,6 +75,7 @@
         var logo = this.add.sprite(config.width / 2, config.height / 2, "logo");
         logo.alpha = 0.4;
         logo.setScale(0.5);
+
         this.input.addPointer(1);
         platforms = this.physics.add.staticGroup();
 
@@ -78,23 +83,28 @@
         platforms.create(50, 240, "ground");
         platforms.create(750, 140, "ground");
 
-        player = this.physics.add.sprite(100, 350, "hero");
+        ladders = this.physics.add.staticGroup();
+        ladders.enableBody = true;
+        ladder = ladders.create(268, 296, "ladder");
+        ladder.body.immovable = true;
 
+        player = this.physics.add.sprite(100, 350, "hero");
+        player.setOrigin(0.5, 0.5);
         player.setCollideWorldBounds(true);
+
+        baddie = this.physics.add.sprite(620, 350, "baddie");
+        baddie.setOrigin(0.5, 0.5);
+        baddie.setCollideWorldBounds(true);
+        baddie.body.velocity.x = -100;
+        baddie.maxDistance = 300;
+        baddie.previousX = baddie.x;
+
         buildTouchSlider(this);
         //Set bounce to 0, so our hero just lands directly
         player.setBounce(0);
         //Set top speeds
         player.body.maxVelocity.x = 200;
         player.body.maxVelocity.y = 500;
-
-        baddie = this.physics.add.sprite(620, 350, "baddie");
-        baddie.setOrigin(0.5, 0.5);
-        baddie.setCollideWorldBounds(true);
-
-        baddie.body.velocity.x = -100;
-        baddie.maxDistance = 300;
-        baddie.previousX = baddie.x;
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -122,17 +132,15 @@
         this.physics.add.collider(coins, platforms);
         this.physics.add.overlap(player, coins, collectCoin, null, this);
         this.physics.add.overlap(player, baddie, hitBaddie, null, this);
+        this.physics.add.overlap(player, ladders, isOnLadder, null, this);
       }
 
       function hitBaddie(player, baddie) {
-        //if the collision is on the baddies head, and baddie hasn't ready been hit...
         if (baddie.body.touching.up && !baddie.hit) {
           // set baddie as being hit and remove physics
           baddie.disableBody(false, false);
-          //make player jump up in the air a little bit
           player.setVelocityY(jumpVelocity);
 
-          //animate baddie, fading out and getting bigger
           var tween = this.tweens.add({
             targets: baddie,
             alpha: 0.3,
@@ -141,7 +149,6 @@
             ease: "Linear",
             duration: 200,
             onComplete: function () {
-              //remove the game object
               destroyGameObject(baddie);
             },
           });
@@ -149,9 +156,8 @@
         //otherwise you've hit baddie, but not on the head. This makes you die
         else {
           //set player to dead
-          player.disableBody(false, false);
 
-          //animate players death scene
+          player.disableBody(false, false);
           var tween = this.tweens.add({
             targets: player,
             alpha: 0.3,
@@ -189,8 +195,9 @@
         //if hero is on ground then use full acceleration
         if (standing) {
           player.setAccelerationX(-acceleration);
-        } else {
-          //if hero is in the air then accelerate slower
+        }
+        //if hero is in the air then accelerate slower
+        else {
           player.setAccelerationX(-acceleration / 3);
         }
       }
@@ -200,8 +207,9 @@
         //if hero is on ground then use full acceleration
         if (standing) {
           player.setAccelerationX(acceleration);
-        } else {
-          //if hero is in the air then accelerate slower
+        }
+        //if hero is in the air then accelerate slower
+        else {
           player.setAccelerationX(acceleration / 3);
         }
       }
@@ -211,15 +219,30 @@
         baddie.body.velocity.x *= -1;
         //reset count
         baddie.previousX = baddie.x;
+        //flip sprite
+        //baddie.scale.setTo(-baddie.scale.x, 1);
+      }
+
+      //called when player overlaps ladder
+      function isOnLadder(player, ladder) {
+        //set ladder flag to true and remove gravity
+        onLadder = true;
+        player.body.setAllowGravity(false);
       }
 
       function update() {
-        var standing = player.body.blocked.down || player.body.touching.down;
+        //built in arcade physics functions of blocked and touching to test for collisions in a given direction
+        var standing = player.body.blocked.down || player.body.touching.down,
+          //get current time in seconds
+          d = new Date(),
+          time = d.getTime();
+
         //if left key is down then move left
         if (cursors.left.isDown) {
           moveLeft(acceleration);
-        } else if (cursors.right.isDown) {
-          //same deal but for right arrow
+        }
+        //same deal but for right arrow
+        else if (cursors.right.isDown) {
           moveRight(acceleration);
         }
 
@@ -281,6 +304,8 @@
                 if (movement > touchMoveThreshold) {
                   //set flag as we are definitely moving
                   touchMoving = true;
+                  //set a flag so we know we are on a mobile device
+                  isTouch = true;
 
                   //set slider knob position to be half way to edge
                   var sliderPos = 0;
@@ -337,6 +362,7 @@
           ) {
             //reset pointer variable
             var myJumpPointer = null;
+
             //get active touch pointer for this side of the screen
             if (
               this.input.pointer1.x > leftHalf &&
@@ -357,9 +383,38 @@
               //get new position of touch pointer
               yPos = myJumpPointer.y;
 
-              //if we have moved our thump upwards then we set jump flag to true
-              if (prevPos - yPos > touchJumpThreshold) {
-                touchJump = true;
+              //check if we are currently overlapping a ladder. If we are then...
+              if (onLadder) {
+                //kill any upwards / downwards velocity from our hero
+                player.setVelocityY(0);
+
+                //if moving up with thumb then climb up the ladder
+                if (Math.floor(prevPos) > Math.floor(yPos)) {
+                  if (!myMovePointer) {
+                    //when moving vertically we want the player pefectly lined up
+                    player.x = ladder.x;
+                    //also kill any x velocity to be sure
+                    player.setVelocityX(0);
+                    player.setVelocityY(-100);
+                  }
+                }
+                //if moving down with thumb then climb down the ladder
+                if (Math.floor(prevPos) < Math.floor(yPos)) {
+                  if (!myMovePointer) {
+                    //when moving vertically we want the player pefectly lined up
+                    player.x = ladder.x;
+                    //also kill any x velocity to be sure
+                    player.setVelocityX(0);
+                    player.setVelocityY(100);
+                  }
+                }
+              }
+              //not on a ladder so go for a standard jump
+              else {
+                //  if we have moved our thump upwards then we set jump flag to true
+                if (prevPos - yPos > touchJumpThreshold) {
+                  touchJump = true;
+                }
               }
             }
           }
@@ -368,6 +423,10 @@
           touchSlider.alpha = 0;
           startX = 0;
           touchMoving = false;
+
+          if (onLadder) {
+            player.setVelocityY(0);
+          }
         }
 
         //if not moving left or right via keys or touch device...
@@ -397,12 +456,42 @@
           edgeTimer = time + 100;
         }
 
-        //if player is standing, or just fallen off a ledge (within our allowed grace time) and...
+        //if we are on a ladder and not on a touch device
+        if (onLadder && !isTouch) {
+          //kill any upwards / downwards velocity from our hero
+          player.setVelocityY(0);
+
+          if (cursors.up.isDown) {
+            if (!cursors.left.isDown && !cursors.right.isDown) {
+              //when moving vertically we want the player pefectly lined up
+              player.x = ladder.x;
+              //also kill any x velocity to be sure
+              player.setVelocityX(0);
+              player.setVelocityY(-100);
+            }
+          }
+          //if JUST down is being pressed then line up player perfectly with ladder.
+          //We do this to make it quicker - but like a firemans pole
+          if (
+            cursors.down.isDown &&
+            !cursors.left.isDown &&
+            !cursors.right.isDown
+          ) {
+            //when moving vertically we want the player pefectly lined up
+            player.x = ladder.x;
+            //also kill any x velocity to be sure
+            player.setVelocityX(0);
+            player.setVelocityY(100);
+          }
+        }
+
+        //if player is standing, or just fallen off a ledge (within our allowed grace time) and..
         //either up key is press, or touchjump flag is set AND they are not already jumping then jump!
         if (
           (standing || time <= edgeTimer) &&
           (cursors.up.isDown || touchJump) &&
-          !jumping
+          !jumping &&
+          !onLadder
         ) {
           player.setVelocityY(jumpVelocity);
           jumping = true;
@@ -418,6 +507,9 @@
           }
         }
         wasStanding = standing;
+        //if player is no longer on on ladder then turn gravity back on
+        if (!onLadder) player.body.setAllowGravity(true);
+        onLadder = false;
       }
 
       function collectCoin(player, coin) {
@@ -446,8 +538,9 @@
           if (scoreCoinTimeline.progress == 1) {
             animateScoreCoin(this);
           }
-        } else {
-          //no animation to create one
+        }
+        //no animation to create one
+        else {
           animateScoreCoin(this);
         }
         score += 10;
