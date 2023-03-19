@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Spikes / Lava - Phaser Platformer series</title>
+    <title>Invincibility - Phaser Platformer series</title>
     <script src="js/phaser.min.js"></script>
     <link rel="stylesheet" href="css/screen.css" />
   </head>
@@ -43,6 +43,8 @@
         maxHearts = 3,
         vulnerableTime = 1000,
         acceleration = 600,
+        maxPlayerSpeed = 200,
+        superPlayerSpeed = 400,
         jumpVelocity = -330,
         wasStanding = false,
         onLadder = false,
@@ -62,7 +64,11 @@
         startX,
         shell,
         shellSpeed = 500,
-        spikes;
+        spikes,
+        invicibility,
+        emitter,
+        heroColor = new Phaser.Display.Color(255, 255, 255),
+        invincibleColor = new Phaser.Display.Color(56, 194, 239);
 
       var game = new Phaser.Game(config);
 
@@ -74,6 +80,8 @@
         this.load.image("baddie", "baddie.jpg");
         this.load.image("ladder", "ladder.png");
         this.load.image("shell", "shell.png");
+        this.load.image("powerup", "powerup.jpg");
+        this.load.image("dust", "dust.jpg");
         this.load.image("spikes", "spikes.png");
         this.load.image("heart", "heart.png");
         this.load.image("heart-filled", "heart-filled.png");
@@ -107,9 +115,13 @@
 
         player = this.physics.add.sprite(40, 350, "hero");
         player.setOrigin(0.5, 0.5);
+        player.setDrag(1);
         player.setCollideWorldBounds(true);
+
         //create and set an invulnerable flag for after the player has been hit
         player.invulnerable = false;
+        //and set an invincible flag for the invincibility powerup
+        player.invincible = false;
         //set no lives / hearts
         player.hearts = maxHearts;
 
@@ -120,14 +132,19 @@
         baddie.maxDistance = 300;
         baddie.previousX = baddie.x;
 
+        //add a shall and set it to rotate around its center
         shell = this.physics.add.sprite(700, 360, "shell");
         shell.setOrigin(0.5, 0.5);
+
+        //add invincibility powerup and set it to rotate around its center
+        invicibility = this.physics.add.sprite(220, 360, "powerup");
+        invicibility.setOrigin(0.5, 0.5);
 
         buildTouchSlider(this);
         //Set bounce to 0, so our hero just lands directly
         player.setBounce(0);
         //Set top speeds
-        player.body.maxVelocity.x = 200;
+        player.body.maxVelocity.x = maxPlayerSpeed;
         player.body.maxVelocity.y = 500;
 
         cursors = this.input.keyboard.createCursorKeys();
@@ -166,13 +183,30 @@
         //and store in an array for easy access later
         hearts = [heart1, heart2, heart3];
 
+        //create our particle effects for when in invincible mode
+        var particles = this.add.particles("dust");
+        emitter = particles.createEmitter();
+        emitter.setPosition(player.x, player.y);
+        emitter.setSpeed(150);
+        emitter.setBlendMode(Phaser.BlendModes.ADD);
+        //turn it off for now until we are invincible
+        emitter.pause();
+
         this.physics.add.collider(player, platforms);
         this.physics.add.collider(baddie, platforms);
         this.physics.add.collider(coins, platforms);
         this.physics.add.collider(shell, platforms);
+        this.physics.add.collider(invicibility, platforms);
         this.physics.add.collider(player, shell, shellHit, null, this);
         this.physics.add.collider(player, spikes, playerHit, null, this);
         this.physics.add.overlap(player, coins, collectCoin, null, this);
+        this.physics.add.overlap(
+          player,
+          invicibility,
+          goInvincibile,
+          null,
+          this
+        );
         this.physics.add.overlap(player, baddie, hitBaddie, null, this);
         this.physics.add.overlap(player, ladders, isOnLadder, null, this);
         this.physics.add.collider(player, ladders, null, checkLadderTop, this);
@@ -181,36 +215,52 @@
       }
 
       function hitBaddie(player, baddie) {
-        //baddie was hit on the head and hasn't already been hit
-        if (baddie.body.touching.up && !baddie.hit) {
-          // set baddie as being hit and remove physics
+        if (player.invincible) {
           baddie.disableBody(false, false);
-          player.setVelocityY(jumpVelocity);
-
-          //play baddies death animation
+          //play baddies super death animation
           var tween = this.tweens.add({
             targets: baddie,
             alpha: 0.3,
-            scaleX: 1.5,
-            scaleY: 1.5,
+            y: "-=150",
+            scaleX: 2.5,
+            scaleY: 2.5,
+            angle: 180,
             ease: "Linear",
             duration: 200,
             onComplete: function () {
               destroyGameObject(baddie);
             },
           });
-        }
-        //otherwise you've hit baddie, BUT not on the head. This makes you die
-        else {
-          playerHit.call(this);
-          // playerHit();
+        } else {
+          //baddie was hit on the head and hasn't already been hit
+          if (baddie.body.touching.up && !baddie.hit) {
+            // set baddie as being hit and remove physics
+            baddie.disableBody(false, false);
+            player.setVelocityY(jumpVelocity);
+
+            //play baddies death animation
+            var tween = this.tweens.add({
+              targets: baddie,
+              alpha: 0.3,
+              scaleX: 1.5,
+              scaleY: 1.5,
+              ease: "Linear",
+              duration: 200,
+              onComplete: function () {
+                destroyGameObject(baddie);
+              },
+            });
+          }
+          //otherwise you've hit baddie, BUT not on the head. This makes you die
+          else {
+            playerHit.call(this);
+          }
         }
       }
 
       function playerHit() {
-        console.log("what is tweens:", this, game);
-        //if you are not already invulnerable
-        if (!player.invulnerable) {
+        //if you are not already invulnerable OR invincible
+        if (!player.invulnerable && !player.invincible) {
           //set player as invulnerable
           player.invulnerable = true;
           //get the heart sprites from our arrays we set up earlier
@@ -459,6 +509,7 @@
       }
 
       function update() {
+        emitter.setPosition(player.x, player.y);
         //built in arcade physics functions of blocked and touching to test for collisions in a given direction
         var standing = player.body.blocked.down || player.body.touching.down,
           //get current time in seconds
@@ -779,6 +830,69 @@
         }
         score += 10;
         scoreText.setText(score);
+      }
+
+      function goInvincibile(player, invicibility) {
+        //stop invicibility for being collected twice, as it will stick around on the screen as it animnates
+        invicibility.disableBody(false, false);
+        //change players max velocity so they can go super fast
+        player.body.maxVelocity.x = superPlayerSpeed;
+        //start our emitter
+        emitter.resume();
+
+        //flash animations using a tint
+        this.tweens.addCounter({
+          from: 0,
+          to: 100,
+          duration: 500,
+          yoyo: true,
+          repeat: 5,
+          onUpdate: function (tween) {
+            var value = Math.floor(tween.getValue());
+            var newColorObject =
+              Phaser.Display.Color.Interpolate.ColorWithColor(
+                heroColor,
+                invincibleColor,
+                100,
+                value
+              );
+            var color = Phaser.Display.Color.GetColor(
+              newColorObject.r,
+              newColorObject.g,
+              newColorObject.b
+            );
+            player.setTint(color);
+          },
+          onComplete: function () {
+            resetInvincibility();
+          },
+        });
+
+        //tween powerup to scale up and disappear
+        var tween = this.tweens.add({
+          targets: invicibility,
+          alpha: 0.3,
+          angle: 90,
+          scaleX: 3,
+          scaleY: 3,
+          ease: "Linear",
+          duration: 500,
+          onComplete: function () {
+            destroyGameObject(invicibility);
+          },
+        });
+        //set players invincible flag to true
+        player.invincible = true;
+      }
+
+      function resetInvincibility() {
+        //reset the invincible flag
+        player.invincible = false;
+        //reset max speed of player
+        player.body.maxVelocity.x = maxPlayerSpeed;
+        //pause emitter and remove any existing particles
+        emitter.pause();
+        emitter.killAll();
       }
 
       //rotate score coin and make bigger before shrinking again
